@@ -1,0 +1,17 @@
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Foundry generated files
+contracts/cache/
+contracts/out/
+cache/
+out/
+broadcast/
+
+# Build output
+dist/
