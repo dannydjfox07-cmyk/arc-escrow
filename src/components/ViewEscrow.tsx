@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { arcTestnet } from 'viem/chains'
-import { Loader2, ExternalLink, Search, CheckCircle2, XCircle, Clock } from 'lucide-react'
+import { Loader2, Search, CheckCircle2, XCircle, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import { getUsdc } from '@/onchain-facts'
 import { Amount } from '@/onchain-money'
-import { buildTxExplorerUrl } from '@/onchain-facts'
 import { ESCROW_ABI, ESCROW_STATE_LABELS, getEscrowAddress, parseEscrowError } from '@/lib/escrow'
+import TxReceipt from '@/components/TxReceipt'
+import RiskNotice from '@/components/RiskNotice'
+import { useEscrowHistory } from '@/hooks/useEscrowHistory'
+import { buildTxExplorerUrl } from '@/onchain-facts'
+import { ExternalLink, History } from 'lucide-react'
 
 const CHAIN_ID = arcTestnet.id
 const usdcFact = getUsdc(CHAIN_ID)!
@@ -30,6 +34,97 @@ const STATE_COLOR: Record<number, string> = {
   0: '#e8932a',
   1: 'var(--success)',
   2: 'var(--danger)',
+}
+
+function HistoryRow({
+  label,
+  hash,
+  chainId,
+  accent = 'var(--accent-hover)',
+}: {
+  label: string
+  hash: `0x${string}`
+  chainId: number
+  accent?: string
+}) {
+  const url = buildTxExplorerUrl(chainId, hash)
+  const short = `${hash.slice(0, 10)}…${hash.slice(-8)}`
+  return (
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>{label}</p>
+        <p className="mono mt-0.5 text-xs tabular-nums" style={{ color: 'var(--subtle)' }}>{short}</p>
+      </div>
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`View ${label} transaction on Arc Testnet explorer`}
+        className="ml-3 flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-opacity hover:opacity-70"
+        style={{ background: 'var(--surface-muted)', color: accent, border: '1px solid var(--border)' }}
+      >
+        View <ExternalLink className="size-3" />
+      </a>
+    </div>
+  )
+}
+
+function TxHistory({
+  history,
+  chainId,
+  escrowState,
+}: {
+  history: ReturnType<typeof useEscrowHistory>
+  chainId: number
+  escrowState: number
+}) {
+  if (history.status === 'idle' || history.status === 'loading') return null
+
+  if (history.status === 'unavailable') {
+    return (
+      <div className="mt-4 rounded-2xl px-4 py-3 text-xs" style={{ background: 'rgba(18,45,69,0.04)', border: '1px solid var(--border)', color: 'var(--subtle)' }}>
+        Transaction history is currently unavailable (RPC node may not support historical log queries).
+      </div>
+    )
+  }
+
+  const hasAny = history.createdTx || history.releasedTx || history.cancelledTx
+  if (!hasAny) return null
+
+  return (
+    <div className="mt-4 rounded-2xl px-4 py-3" style={{ background: 'rgba(18,45,69,0.03)', border: '1px solid var(--border)' }}>
+      <div className="mb-3 flex items-center gap-1.5">
+        <History className="size-3.5" style={{ color: 'var(--muted)' }} />
+        <p className="text-xs font-semibold tracking-wide" style={{ color: 'var(--muted)' }}>TRANSACTION HISTORY</p>
+      </div>
+      <div className="flex flex-col gap-3">
+        {history.createdTx && (
+          <HistoryRow label="Escrow created" hash={history.createdTx} chainId={chainId} />
+        )}
+        {history.releasedTx && (
+          <HistoryRow
+            label="Released to seller"
+            hash={history.releasedTx}
+            chainId={chainId}
+            accent="var(--success)"
+          />
+        )}
+        {history.cancelledTx && (
+          <HistoryRow
+            label="Cancelled & refunded"
+            hash={history.cancelledTx}
+            chainId={chainId}
+            accent="var(--danger)"
+          />
+        )}
+      </div>
+      {escrowState === 0 && (
+        <p className="mt-3 text-xs" style={{ color: 'var(--subtle)' }}>
+          Release or cancel transaction will appear here once confirmed on-chain.
+        </p>
+      )}
+    </div>
+  )
 }
 
 export default function ViewEscrow({ initialId }: { initialId?: bigint }) {
@@ -56,8 +151,9 @@ export default function ViewEscrow({ initialId }: { initialId?: bigint }) {
   const isPending = escrowData?.state === 0
 
   // Release
-  const { writeContract: releaseWrite, data: releaseHash, isPending: releasePending, reset: resetRelease } = useWriteContract()
-  const { isLoading: releaseConfirming, isSuccess: releaseSuccess } = useWaitForTransactionReceipt({ hash: releaseHash, chainId: CHAIN_ID })
+  const { writeContract: releaseWrite, data: releaseHash, isPending: releasePending, isError: releaseError, reset: resetRelease } = useWriteContract()
+  const { isLoading: releaseConfirming, isSuccess: releaseSuccess, isError: releaseTxError } = useWaitForTransactionReceipt({ hash: releaseHash, chainId: CHAIN_ID })
+  const releaseFailed = releaseError || releaseTxError
   const prevReleaseSuccess = useRef(false)
   useEffect(() => {
     if (releaseSuccess && !prevReleaseSuccess.current) {
@@ -69,8 +165,9 @@ export default function ViewEscrow({ initialId }: { initialId?: bigint }) {
   }, [releaseSuccess, refetch])
 
   // Cancel
-  const { writeContract: cancelWrite, data: cancelHash, isPending: cancelPending, reset: resetCancel } = useWriteContract()
-  const { isLoading: cancelConfirming, isSuccess: cancelSuccess } = useWaitForTransactionReceipt({ hash: cancelHash, chainId: CHAIN_ID })
+  const { writeContract: cancelWrite, data: cancelHash, isPending: cancelPending, isError: cancelError, reset: resetCancel } = useWriteContract()
+  const { isLoading: cancelConfirming, isSuccess: cancelSuccess, isError: cancelTxError } = useWaitForTransactionReceipt({ hash: cancelHash, chainId: CHAIN_ID })
+  const cancelFailed = cancelError || cancelTxError
   const prevCancelSuccess = useRef(false)
   useEffect(() => {
     if (cancelSuccess && !prevCancelSuccess.current) {
@@ -104,6 +201,13 @@ export default function ViewEscrow({ initialId }: { initialId?: bigint }) {
     : null
 
   const isNotFound = escrowData && escrowData.buyer === '0x0000000000000000000000000000000000000000'
+
+  // Historical event logs — fetched from chain via eth_getLogs, no backend needed
+  const history = useEscrowHistory(
+    escrowAddress,
+    !isNotFound && escrowData ? queriedId : null,
+    CHAIN_ID,
+  )
 
   return (
     <section className="rounded-3xl p-5" style={glass.card}>
@@ -190,8 +294,8 @@ export default function ViewEscrow({ initialId }: { initialId?: bigint }) {
           {/* Buyer actions */}
           {isBuyer && isPending && (
             <>
-              <div className="mb-3 rounded-2xl px-4 py-3 text-xs leading-relaxed" style={{ background: 'rgba(18,45,69,0.05)', border: '1px solid var(--border)', color: 'var(--subtle)' }}>
-                You are the buyer. Release funds to the seller once work is complete, or cancel to recover your USDC. Cancellation is available at any time — this contract has no dispute mechanism.
+              <div className="mb-3">
+                <RiskNotice />
               </div>
               <div className="flex gap-2.5">
                 <button
@@ -232,16 +336,33 @@ export default function ViewEscrow({ initialId }: { initialId?: bigint }) {
             </p>
           )}
 
-          {/* Tx links */}
-          {releaseHash && (
-            <a href={buildTxExplorerUrl(CHAIN_ID, releaseHash)} target="_blank" rel="noreferrer" className="mt-3 flex items-center gap-1 text-xs" style={{ color: 'var(--accent-hover)' }}>
-              Release tx <ExternalLink className="size-3" />
-            </a>
-          )}
-          {cancelHash && (
-            <a href={buildTxExplorerUrl(CHAIN_ID, cancelHash)} target="_blank" rel="noreferrer" className="mt-2 flex items-center gap-1 text-xs" style={{ color: 'var(--danger)' }}>
-              Cancel tx <ExternalLink className="size-3" />
-            </a>
+          {/* Transaction history — sourced from on-chain event logs */}
+          <TxHistory history={history} chainId={CHAIN_ID} escrowState={escrowData.state} />
+
+          {/* Live tx receipts (current session only — complements the history above) */}
+          {(releaseHash || cancelHash) && (
+            <div className="mt-3 flex flex-col gap-2">
+              {releaseHash && (
+                <TxReceipt
+                  label="Release"
+                  hash={releaseHash}
+                  confirming={releaseConfirming}
+                  confirmed={releaseSuccess}
+                  failed={releaseFailed}
+                  chainId={CHAIN_ID}
+                />
+              )}
+              {cancelHash && (
+                <TxReceipt
+                  label="Cancel"
+                  hash={cancelHash}
+                  confirming={cancelConfirming}
+                  confirmed={cancelSuccess}
+                  failed={cancelFailed}
+                  chainId={CHAIN_ID}
+                />
+              )}
+            </div>
           )}
         </>
       )}

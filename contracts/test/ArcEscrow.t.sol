@@ -522,4 +522,114 @@ contract ArcEscrowTest is Test {
         assertEq(id3, 3, "third id");
         assertEq(escrow.escrowCount(), 3, "escrowCount == 3");
     }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // T33 — constructor reverts ZeroAddress when usdc_ == address(0)
+    // ══════════════════════════════════════════════════════════════════════
+    function test_T33_Constructor_ZeroAddress() public {
+        vm.expectRevert(ArcEscrow.ZeroAddress.selector);
+        new ArcEscrow(address(0));
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // T34 — updateSeller then release sends funds to the updated seller
+    // ══════════════════════════════════════════════════════════════════════
+    function test_T34_UpdateSeller_ThenRelease_FundsGoToNewSeller() public {
+        uint256 id = _create();
+
+        address newSeller = makeAddr("newSeller");
+
+        // Buyer redirects the seller
+        vm.prank(buyer);
+        escrow.updateSeller(id, newSeller);
+
+        uint256 newSellerBefore  = usdc.balanceOf(newSeller);
+        uint256 oldSellerBefore  = usdc.balanceOf(seller);
+        uint256 contractBefore   = usdc.balanceOf(address(escrow));
+
+        // Buyer releases — funds must go to newSeller, not original seller
+        vm.prank(buyer);
+        escrow.releaseEscrow(id);
+
+        assertEq(usdc.balanceOf(newSeller),         newSellerBefore  + AMOUNT, "newSeller received funds");
+        assertEq(usdc.balanceOf(seller),             oldSellerBefore,            "original seller untouched");
+        assertEq(usdc.balanceOf(address(escrow)),   contractBefore   - AMOUNT, "contract balance decreased");
+
+        ArcEscrow.Escrow memory e = escrow.getEscrow(id);
+        assertEq(uint8(e.state), uint8(ArcEscrow.EscrowState.Released), "state Released");
+        assertEq(e.seller, newSeller, "stored seller is newSeller");
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // T35 — operating on one escrow does not affect a concurrent escrow
+    // ══════════════════════════════════════════════════════════════════════
+    function test_T35_MultipleEscrows_Isolation() public {
+        address buyer2  = makeAddr("buyer2");
+        address seller2 = makeAddr("seller2");
+
+        // Fund and approve a second buyer
+        usdc.mint(buyer2, 10_000e6);
+        vm.prank(buyer2);
+        usdc.approve(address(escrow), type(uint256).max);
+
+        // Create two independent escrows
+        vm.prank(buyer);
+        uint256 id1 = escrow.createEscrow(seller, AMOUNT);
+
+        vm.prank(buyer2);
+        uint256 id2 = escrow.createEscrow(seller2, AMOUNT);
+
+        uint256 seller2Before   = usdc.balanceOf(seller2);
+        uint256 contractBefore  = usdc.balanceOf(address(escrow));
+
+        // Release escrow #2 only
+        vm.prank(buyer2);
+        escrow.releaseEscrow(id2);
+
+        // Escrow #1 must remain Pending and untouched
+        ArcEscrow.Escrow memory e1 = escrow.getEscrow(id1);
+        assertEq(uint8(e1.state), uint8(ArcEscrow.EscrowState.Pending), "escrow #1 still Pending");
+        assertEq(e1.buyer,  buyer,  "escrow #1 buyer unchanged");
+        assertEq(e1.seller, seller, "escrow #1 seller unchanged");
+        assertEq(e1.amount, AMOUNT, "escrow #1 amount unchanged");
+
+        // Escrow #2 must be Released
+        ArcEscrow.Escrow memory e2 = escrow.getEscrow(id2);
+        assertEq(uint8(e2.state), uint8(ArcEscrow.EscrowState.Released), "escrow #2 Released");
+
+        // Balances: only AMOUNT left in contract (escrow #1), seller2 received AMOUNT
+        assertEq(usdc.balanceOf(address(escrow)), contractBefore - AMOUNT, "contract holds only escrow #1");
+        assertEq(usdc.balanceOf(seller2),          seller2Before  + AMOUNT, "seller2 paid");
+
+        // Cancel escrow #1 — must still work normally
+        vm.prank(buyer);
+        escrow.cancelEscrow(id1);
+
+        ArcEscrow.Escrow memory e1after = escrow.getEscrow(id1);
+        assertEq(uint8(e1after.state), uint8(ArcEscrow.EscrowState.Cancelled), "escrow #1 Cancelled");
+        assertEq(usdc.balanceOf(address(escrow)), 0, "contract emptied");
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // T36 — EscrowReleased and EscrowCancelled events carry correct params
+    // ══════════════════════════════════════════════════════════════════════
+    function test_T36_EventParameters_ReleaseAndCancel() public {
+        // --- Release event ---
+        uint256 idR = _create();
+
+        vm.expectEmit(true, true, true, true, address(escrow));
+        emit ArcEscrow.EscrowReleased(idR, buyer, seller, AMOUNT);
+
+        vm.prank(buyer);
+        escrow.releaseEscrow(idR);
+
+        // --- Cancel event ---
+        uint256 idC = _create(); // creates escrow #2
+
+        vm.expectEmit(true, true, true, true, address(escrow));
+        emit ArcEscrow.EscrowCancelled(idC, buyer, seller, AMOUNT);
+
+        vm.prank(buyer);
+        escrow.cancelEscrow(idC);
+    }
 }

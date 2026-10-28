@@ -53,7 +53,7 @@ export default function App() {
 
         {/* Footer note */}
         <p className="mt-8 text-center text-xs leading-relaxed" style={{ color: 'var(--subtle)' }}>
-          ArcEscrow · Testnet demo · Not a dispute resolution service · Buyer may cancel at any time
+          ArcEscrow · Testnet demo · No dispute resolution · Buyer may cancel at any time · No automatic expiry · Subject to USDC issuer restrictions
         </p>
       </main>
     </div>

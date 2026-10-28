@@ -2,12 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { erc20Abi, isAddress } from 'viem'
 import { arcTestnet } from 'viem/chains'
-import { Loader2, ExternalLink, ShieldCheck } from 'lucide-react'
+import { Loader2, ShieldCheck } from 'lucide-react'
+import TxReceipt from '@/components/TxReceipt'
 import { toast } from 'sonner'
 import { getUsdc } from '@/onchain-facts'
 import { parseUsdc, Amount } from '@/onchain-money'
-import { buildTxExplorerUrl } from '@/onchain-facts'
 import { ESCROW_ABI, getEscrowAddress, parseEscrowError } from '@/lib/escrow'
+import RiskNotice from '@/components/RiskNotice'
 
 const CHAIN_ID = arcTestnet.id
 const usdcFact = getUsdc(CHAIN_ID)!
@@ -219,10 +220,10 @@ export default function CreateEscrow({ onCreated }: { onCreated: (id: bigint) =>
         </div>
       </div>
 
-      {/* Buyer disclaimer */}
-      <p className="mb-4 text-xs leading-relaxed" style={{ color: 'var(--subtle)' }}>
-        As buyer, you may cancel any pending escrow at any time. This contract does not provide dispute resolution or guaranteed seller protection.
-      </p>
+      {/* Risk disclosure */}
+      <div className="mb-4">
+        <RiskNotice />
+      </div>
 
       {/* Two-step CTA */}
       <div className="flex flex-col gap-2.5">
@@ -254,28 +255,28 @@ export default function CreateEscrow({ onCreated }: { onCreated: (id: bigint) =>
         </button>
       </div>
 
-      {/* Receipts */}
-      {approveHash && (
-        <a
-          href={buildTxExplorerUrl(CHAIN_ID, approveHash)}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-3 flex items-center gap-1 text-xs transition-opacity hover:opacity-70"
-          style={{ color: 'var(--accent-hover)' }}
-        >
-          Approval tx <ExternalLink className="size-3" />
-        </a>
-      )}
-      {createHash && (
-        <a
-          href={buildTxExplorerUrl(CHAIN_ID, createHash)}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-2 flex items-center gap-1 text-xs transition-opacity hover:opacity-70"
-          style={{ color: 'var(--accent-hover)' }}
-        >
-          Escrow creation tx <ExternalLink className="size-3" />
-        </a>
+      {/* Receipts — shown only after on-chain confirmation */}
+      {(approveHash || createHash) && (
+        <div className="mt-4 flex flex-col gap-2">
+          {approveHash && (
+            <TxReceipt
+              label="USDC Approval"
+              hash={approveHash}
+              confirming={approveConfirming}
+              confirmed={approveSuccess}
+              chainId={CHAIN_ID}
+            />
+          )}
+          {createHash && (
+            <TxReceipt
+              label="Escrow Created"
+              hash={createHash}
+              confirming={createConfirming}
+              confirmed={createSuccess}
+              chainId={CHAIN_ID}
+            />
+          )}
+        </div>
       )}
     </section>
   )
