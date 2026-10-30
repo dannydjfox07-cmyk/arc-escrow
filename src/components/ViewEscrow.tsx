@@ -8,9 +8,6 @@ import { Amount } from '@/onchain-money'
 import { ESCROW_ABI, ESCROW_STATE_LABELS, getEscrowAddress, parseEscrowError } from '@/lib/escrow'
 import TxReceipt from '@/components/TxReceipt'
 import RiskNotice from '@/components/RiskNotice'
-import { useEscrowHistory } from '@/hooks/useEscrowHistory'
-import { buildTxExplorerUrl } from '@/onchain-facts'
-import { ExternalLink, History } from 'lucide-react'
 
 const CHAIN_ID = arcMainnet.id
 const usdcFact = getUsdc(CHAIN_ID)!
@@ -35,98 +32,6 @@ const STATE_COLOR: Record<number, string> = {
   1: 'var(--success)',
   2: 'var(--danger)',
 }
-
-function HistoryRow({
-  label,
-  hash,
-  chainId,
-  accent = 'var(--accent-hover)',
-}: {
-  label: string
-  hash: `0x${string}`
-  chainId: number
-  accent?: string
-}) {
-  const url = buildTxExplorerUrl(chainId, hash)
-  const short = `${hash.slice(0, 10)}…${hash.slice(-8)}`
-  return (
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>{label}</p>
-        <p className="mono mt-0.5 text-xs tabular-nums" style={{ color: 'var(--subtle)' }}>{short}</p>
-      </div>
-      <a
-        href={url}
-        target="_blank"
-        rel="noreferrer"
-        aria-label={`View ${label} transaction on Arc explorer`}
-        className="ml-3 flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-opacity hover:opacity-70"
-        style={{ background: 'var(--surface-muted)', color: accent, border: '1px solid var(--border)' }}
-      >
-        View <ExternalLink className="size-3" />
-      </a>
-    </div>
-  )
-}
-
-function TxHistory({
-  history,
-  chainId,
-  escrowState,
-}: {
-  history: ReturnType<typeof useEscrowHistory>
-  chainId: number
-  escrowState: number
-}) {
-  if (history.status === 'idle' || history.status === 'loading') return null
-
-  if (history.status === 'unavailable') {
-    return (
-      <div className="mt-4 rounded-2xl px-4 py-3 text-xs" style={{ background: 'rgba(18,45,69,0.04)', border: '1px solid var(--border)', color: 'var(--subtle)' }}>
-        Transaction history is currently unavailable (RPC node may not support historical log queries).
-      </div>
-    )
-  }
-
-  const hasAny = history.createdTx || history.releasedTx || history.cancelledTx
-  if (!hasAny) return null
-
-  return (
-    <div className="mt-4 rounded-2xl px-4 py-3" style={{ background: 'rgba(18,45,69,0.03)', border: '1px solid var(--border)' }}>
-      <div className="mb-3 flex items-center gap-1.5">
-        <History className="size-3.5" style={{ color: 'var(--muted)' }} />
-        <p className="text-xs font-semibold tracking-wide" style={{ color: 'var(--muted)' }}>TRANSACTION HISTORY</p>
-      </div>
-      <div className="flex flex-col gap-3">
-        {history.createdTx && (
-          <HistoryRow label="Escrow created" hash={history.createdTx} chainId={chainId} />
-        )}
-        {history.releasedTx && (
-          <HistoryRow
-            label="Released to seller"
-            hash={history.releasedTx}
-            chainId={chainId}
-            accent="var(--success)"
-          />
-        )}
-        {history.cancelledTx && (
-          <HistoryRow
-            label="Cancelled & refunded"
-            hash={history.cancelledTx}
-            chainId={chainId}
-            accent="var(--danger)"
-          />
-        )}
-      </div>
-      {escrowState === 0 && (
-        <p className="mt-3 text-xs" style={{ color: 'var(--subtle)' }}>
-          Release or cancel transaction will appear here once confirmed on-chain.
-        </p>
-      )}
-    </div>
-  )
-}
-
 export default function ViewEscrow({ initialId }: { initialId?: bigint }) {
   const { address, isConnected, chainId } = useAccount()
   const escrowAddress = getEscrowAddress()
@@ -201,13 +106,6 @@ export default function ViewEscrow({ initialId }: { initialId?: bigint }) {
     : null
 
   const isNotFound = escrowData && escrowData.buyer === '0x0000000000000000000000000000000000000000'
-
-  // Historical event logs — fetched from chain via eth_getLogs, no backend needed
-  const history = useEscrowHistory(
-    escrowAddress,
-    !isNotFound && escrowData ? queriedId : null,
-    CHAIN_ID,
-  )
 
   return (
     <section className="rounded-3xl p-5" style={glass.card}>
@@ -335,9 +233,6 @@ export default function ViewEscrow({ initialId }: { initialId?: bigint }) {
               This escrow is {ESCROW_STATE_LABELS[escrowData.state]?.toLowerCase()} and no further actions are available.
             </p>
           )}
-
-          {/* Transaction history — sourced from on-chain event logs */}
-          <TxHistory history={history} chainId={CHAIN_ID} escrowState={escrowData.state} />
 
           {/* Live tx receipts (current session only — complements the history above) */}
           {(releaseHash || cancelHash) && (
