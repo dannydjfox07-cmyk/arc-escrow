@@ -77,21 +77,21 @@ export function useEscrowHistory(
             address: contractAddress,
             event: CREATED_EVENT,
             args: { escrowId },
-            fromBlock: 'earliest',
+            fromBlock: 28650424n,
             toBlock: 'latest',
           }),
           publicClient!.getLogs({
             address: contractAddress,
             event: RELEASED_EVENT,
             args: { escrowId },
-            fromBlock: 'earliest',
+            fromBlock: 28650424n,
             toBlock: 'latest',
           }),
           publicClient!.getLogs({
             address: contractAddress,
             event: CANCELLED_EVENT,
             args: { escrowId },
-            fromBlock: 'earliest',
+            fromBlock: 28650424n,
             toBlock: 'latest',
           }),
         ])
@@ -104,7 +104,9 @@ export function useEscrowHistory(
           releasedTx: releasedLogs[0]?.transactionHash ?? null,
           cancelledTx: cancelledLogs[0]?.transactionHash ?? null,
         })
-      } catch {
+      } catch (error) {
+        console.error('[ArcEscrow] Failed to fetch transaction history:', error)
+
         if (!cancelled) {
           setHistory({ ...EMPTY, status: 'unavailable' })
         }
@@ -113,7 +115,7 @@ export function useEscrowHistory(
 
     void fetch()
     return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contractAddress, escrowId, chainId])
 
   return history

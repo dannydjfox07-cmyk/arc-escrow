@@ -1,10 +1,10 @@
 import { useAccount, useReadContract } from 'wagmi'
 import { erc20Abi } from 'viem'
-import { arcTestnet } from 'viem/chains'
+import { arcMainnet } from '@/config'
 import { getUsdc } from '@/onchain-facts'
 import { Amount } from '@/onchain-money'
 
-const CHAIN_ID = arcTestnet.id
+const CHAIN_ID = arcMainnet.id
 const usdcFact = getUsdc(CHAIN_ID)!
 const USDC_ADDRESS = usdcFact.address as `0x${string}`
 
@@ -38,7 +38,7 @@ export default function USDCBalance() {
         </span>
         <span className="text-base font-medium" style={{ color: 'var(--subtle)' }}>USDC</span>
       </div>
-      <p className="mt-1 text-xs" style={{ color: 'var(--subtle)' }}>Arc Testnet · ERC-20 view</p>
+      <p className="mt-1 text-xs" style={{ color: 'var(--subtle)' }}>Arc Mainnet · ERC-20 view</p>
     </div>
   )
 }

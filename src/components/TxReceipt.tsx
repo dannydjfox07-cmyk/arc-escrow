@@ -9,7 +9,7 @@ function shortHash(hash: string) {
  * Displays a transaction hash row with:
  * - A status label (submitted / confirming / confirmed / failed)
  * - A shortened hash in monospace
- * - A "View" button linking to the Arc Testnet explorer
+ * - A "View" button linking to the Arc explorer
  * Only shows the confirmed style after `useWaitForTransactionReceipt` returns isSuccess.
  */
 export default function TxReceipt({
@@ -72,7 +72,7 @@ export default function TxReceipt({
         href={url}
         target="_blank"
         rel="noreferrer"
-        aria-label={`View ${label} transaction on Arc Testnet explorer`}
+        aria-label={`View ${label} transaction on Arc explorer`}
         className="ml-3 flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-opacity hover:opacity-70"
         style={{ background: 'var(--surface-muted)', color: 'var(--accent-hover)', border: '1px solid var(--border)' }}
       >

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { erc20Abi, isAddress } from 'viem'
-import { arcTestnet } from 'viem/chains'
+import { arcMainnet } from '@/config'
 import { Loader2, ShieldCheck } from 'lucide-react'
 import TxReceipt from '@/components/TxReceipt'
 import { toast } from 'sonner'
@@ -10,7 +10,7 @@ import { parseUsdc, Amount } from '@/onchain-money'
 import { ESCROW_ABI, getEscrowAddress, parseEscrowError } from '@/lib/escrow'
 import RiskNotice from '@/components/RiskNotice'
 
-const CHAIN_ID = arcTestnet.id
+const CHAIN_ID = arcMainnet.id
 const usdcFact = getUsdc(CHAIN_ID)!
 const USDC_ADDRESS = usdcFact.address as `0x${string}`
 

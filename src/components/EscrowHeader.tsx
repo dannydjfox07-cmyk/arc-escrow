@@ -1,10 +1,9 @@
 import { ConnectKitButton } from 'connectkit'
-import { useAccount } from 'wagmi'
-import { arcTestnet } from 'viem/chains'
-import { useSwitchChain } from 'wagmi'
+import { useAccount, useSwitchChain } from 'wagmi'
+import { arcMainnet } from '@/config'
 import { AlertCircle } from 'lucide-react'
 
-const TARGET_CHAIN_ID = arcTestnet.id
+const TARGET_CHAIN_ID = arcMainnet.id
 
 export default function EscrowHeader() {
   const { chainId, isConnected } = useAccount()
@@ -16,15 +15,15 @@ export default function EscrowHeader() {
       <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-3">
         <div>
           <span className="display text-lg font-bold" style={{ color: 'var(--ink)' }}>ArcEscrow</span>
-          <span className="ml-2 rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: 'rgba(18,45,69,0.08)', color: 'var(--muted)' }}>Testnet</span>
+          <span className="ml-2 rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: 'rgba(18,45,69,0.08)', color: 'var(--muted)' }}>Mainnet</span>
         </div>
         <ConnectKitButton />
       </div>
       {wrongChain && (
-        <div className="flex items-center justify-between px-4 py-2 text-xs font-semibold" style={{ background: 'rgba(186,43,76,0.08)', color: 'var(--danger)' }}>
+        <div className="flex items-center justify-between px-4 py-2 text-xs font-semibold" style={{ background: 'rgba(186,43,76,0.08)', color: 'var(--danger)'}}>
           <span className="flex items-center gap-1.5">
             <AlertCircle className="size-3.5" />
-            Wrong network. Switch to Arc Testnet to continue.
+            Wrong network. Switch to Arc Mainnet to continue.
           </span>
           <button
             onClick={() => switchChain({ chainId: TARGET_CHAIN_ID })}

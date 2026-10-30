@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { arcTestnet } from 'viem/chains'
+import { arcMainnet } from '@/config'
 import { Loader2, Search, CheckCircle2, XCircle, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import { getUsdc } from '@/onchain-facts'
@@ -12,7 +12,7 @@ import { useEscrowHistory } from '@/hooks/useEscrowHistory'
 import { buildTxExplorerUrl } from '@/onchain-facts'
 import { ExternalLink, History } from 'lucide-react'
 
-const CHAIN_ID = arcTestnet.id
+const CHAIN_ID = arcMainnet.id
 const usdcFact = getUsdc(CHAIN_ID)!
 
 const glass = {
@@ -59,7 +59,7 @@ function HistoryRow({
         href={url}
         target="_blank"
         rel="noreferrer"
-        aria-label={`View ${label} transaction on Arc Testnet explorer`}
+        aria-label={`View ${label} transaction on Arc explorer`}
         className="ml-3 flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-opacity hover:opacity-70"
         style={{ background: 'var(--surface-muted)', color: accent, border: '1px solid var(--border)' }}
       >
